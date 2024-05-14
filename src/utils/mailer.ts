@@ -1,7 +1,28 @@
+import User from "@/models/user.models";
 import nodemailer from "nodemailer";
+import bcryptjs from "bcryptjs";
 
 export const sendEmail = async ({ email, emailType, userId }:any) => {
   try {
+
+    const hashedToken = await bcryptjs.hash(userId.toString(), 10)
+
+    if (emailType === "VERIFY") {
+        await User.findByIdAndUpdate(userId,
+            {
+                verifyToken: hashedToken,
+                verifyTokenExpiry: Date.now() + 3600000
+            }
+        )
+    } else if (emailType ==="RESET"){
+        await User.findByIdAndUpdate(userId,
+            {
+                forgotPasswordToken: hashedToken,
+                forgotPasswordTokenExpiry: Date.now() + 3600000
+            }
+        )
+    }
+
     const transporter = nodemailer.createTransport({
       host: "smtp.ethereal.email",
       port: 465,
@@ -15,8 +36,10 @@ export const sendEmail = async ({ email, emailType, userId }:any) => {
     const mailOptions = {
       from: 'wow@wowwow.in',
       to: email,
-      subject: emailType ==="Verify" ? "Verify your email": "Reset Your Password",
-      html: "<b>Hello world?</b>",
+      subject: emailType ==="VERIFY" ? "Verify your email": "Reset Your Password",
+      html: `<p>Click <a href="${process.env.DOMAIN}/verifyemail?token=${hashedToken}">here</a> to ${emailType ==="VERIFY" ? "Verify your email": "Reset Your Password"}
+      or copy and paste the link below in your browser.<br> ${process.env.DOMAIN}/verifyemail?token=${hashedToken}
+      </p>`,
     }
 
     const mailResponse = await transporter.sendMail(mailOptions)
